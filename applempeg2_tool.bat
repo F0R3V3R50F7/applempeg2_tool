@@ -105,13 +105,13 @@ set "OUTPUT=%~dpn1_%RH%p.mov"
 echo.
 echo [PASS 1] Target Bitrate: %BITRATE% (22Mbps for 1080p)
 ffmpeg %FF_GLOBAL% -y -i "%INPUT%" ^
--map 0:v:0 %FPS_CMD% -c:v mpeg2video -pix_fmt yuv420p -g 12 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% ^
+-map 0:v:0 %FPS_CMD% -c:v mpeg2video -pix_fmt yuv420p -g 8 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% ^
 -vf "%VF_FILTERS%" %ENC_TUNE% -pass 1 -an -vtag m2v1 -f null NUL
 
 echo.
 echo [PASS 2] Final Double-Pass Encode...
 ffmpeg %FF_GLOBAL% -y -i "%INPUT%" ^
--map 0:v:0 %FPS_CMD% -map 0:a:0 -c:v mpeg2video -pix_fmt yuv420p -g 12 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% ^
+-map 0:v:0 %FPS_CMD% -map 0:a:0 -c:v mpeg2video -pix_fmt yuv420p -g 8 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% ^
 -vf "%VF_FILTERS%" %ENC_TUNE% -pass 2 -c:a aac -b:a 192k -ar 44100 -ac 2 ^
 -af "aresample=async=1" -f mov -vtag m2v1 -movflags +faststart "%OUTPUT%"
 
