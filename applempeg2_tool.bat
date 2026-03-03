@@ -74,7 +74,6 @@ if "%fps%"=="4" set "FPS_CMD=-r 29.97 -fps_mode cfr"  & set "FPS_VAL=30"
 if "%fps%"=="5" set "FPS_CMD=-r 30 -fps_mode cfr"     & set "FPS_VAL=30"
 if "%fps%"=="6" set "FPS_CMD=-r 60 -fps_mode cfr"     & set "FPS_VAL=60"
 
-:: --- SD BITRATE BOOST (22) ---
 set "BASE_BPP=40"
 set "RES_W=10"
 if %RH% LEQ 720 set "RES_W=15"
