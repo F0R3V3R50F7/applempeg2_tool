@@ -1,6 +1,6 @@
-# AppleMPEG2_Tool (PowerPC G4 Optimized)
+# AppleMPEG2_Tool
 
-**AppleMPEG2_Tool** is a specialized Windows utility designed to bridge the gap between modern high-definition video and vintage PowerPC hardware. It converts any modern video into high-bitrate, AltiVec-friendly MPEG-2 within a `.mov` container, specifically tuned for **QuickTime 7.7** and older.
+**AppleMPEG2_Tool** is a specialized Windows utility designed to bridge the gap between modern high-definition video and vintage PowerPC hardware. It converts any modern video into standard-bitrate, AltiVec-friendly MPEG-2 within a `.mov` container, specifically tuned for **QuickTime 7.7** and older.
 
 ### Why MPEG-2?
 While H.264 and MPEG-4 are "efficient" in terms of disk space, they are devastatingly heavy on G4 CPUs. MPEG-2 provides the perfect balance: it is computationally "cheap" to decode, allowing even a **1.67GHz PowerBook G4** to achieve flawless 1080p playback. This tool produces files that are significantly more manageable than Apple ProRes while maintaining "competitive" file sizes.
