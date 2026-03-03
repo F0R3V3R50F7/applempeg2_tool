@@ -3,7 +3,7 @@ This Windows tool will convert any video file to perfectly encoded mpeg-2 at a r
 MPEG-2 (.mov) is the most efficient format for video on PowerPC G4 systems. It's much easier for the CPU to decode over MPEG-4 or God forbid H264. The file sizes are also very competetive over something like Apple ProRes. 
 Using this format will enable flawless playback of 1080p content on even the 1.67GHz PowerBook G4. 60fps playback is also possible on the dual 1.42ghz MDD G4, but QuickTime is the only player that can decode this. iTunes will stutter, as will Real and VLC will refuse all together. It's generally recommended to stick to 23.97. You want to aim for the minimum framerate possible to save disk space. 
 
-Simply download the batch from above and drag your video onto it.
+Download ffmpeg from the link here: "https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest", extract the zip and move the batch from above to the bin folder. Simply drag your video onto the batch and select your desired options.
 
 Playback of MPEG-2 content on Mac OS X is not supported by default, Apple sold their QuickTime MPEG-2 Codec to editing customers separately. This codec has since become obsolete and unobtainable so I have archived it here: 
 
