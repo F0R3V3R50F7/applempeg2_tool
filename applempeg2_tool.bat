@@ -21,13 +21,13 @@ echo 2). 1600x900                  8). 1024x768 (XGA)
 echo 3). 1366x768                  9). 800x600  (SVGA)
 echo 4). 1280x720  (720p)          10). 640x480  (VGA)
 echo 5). 1024x576                  11). 320x240  (QVGA)
-echo 6). 854x480   (480p)          
+echo 6). 854x480   (480p)          12). 720x576  (PAL DVD)
+echo                               13). 720x480  (NTSC DVD)
 echo.
 echo 0). SOURCE RESOLUTION
 echo.
 set /p choice="Choice: "
 
-:: Resolution Mapping
 if "%choice%"=="1"  set "RW=1920" & set "RH=1080"
 if "%choice%"=="2"  set "RW=1600" & set "RH=900"
 if "%choice%"=="3"  set "RW=1366" & set "RH=768"
@@ -39,6 +39,8 @@ if "%choice%"=="8"  set "RW=1024" & set "RH=768"
 if "%choice%"=="9"  set "RW=800"  & set "RH=600"
 if "%choice%"=="10" set "RW=640"  & set "RH=480"
 if "%choice%"=="11" set "RW=320"  & set "RH=240"
+if "%choice%"=="12" set "RW=720"  & set "RH=576"
+if "%choice%"=="13" set "RW=720"  & set "RH=480"
 
 if "%choice%"=="0" (
     for /f "tokens=1,2 delims=x" %%a in ('ffprobe -v error -select_streams v:0 -show_entries stream^=width^,height -of csv^=s^=x:p^=0 "%INPUT%"') do (
@@ -49,13 +51,14 @@ if "%choice%"=="0" (
 )
 
 echo.
-echo FRAMERATE:
+echo Select Framerate:
 echo 1). Source
 echo 2). 23.97
 echo 3). 25
 echo 4). 29.97
 echo 5). 30
 echo 6). 60
+echo.
 set /p fps="Choice: "
 
 set "FPS_CMD="
@@ -65,28 +68,22 @@ if "%fps%"=="1" (
         if "%%b" == "" (set /a "FPS_VAL=%%a") else (set /a "FPS_VAL=%%a/%%b")
     )
 )
-if "%fps%"=="2" set "FPS_CMD=-r 23.97 -fps_mode cfr" & set "FPS_VAL=24"
-if "%fps%"=="3" set "FPS_CMD=-r 25 -fps_mode cfr"    & set "FPS_VAL=25"
-if "%fps%"=="4" set "FPS_CMD=-r 29.97 -fps_mode cfr" & set "FPS_VAL=30"
-if "%fps%"=="5" set "FPS_CMD=-r 30 -fps_mode cfr"    & set "FPS_VAL=30"
-if "%fps%"=="6" set "FPS_CMD=-r 60 -fps_mode cfr"    & set "FPS_VAL=60"
+if "%fps%"=="2" set "FPS_CMD=-r 23.976 -fps_mode cfr" & set "FPS_VAL=24"
+if "%fps%"=="3" set "FPS_CMD=-r 25 -fps_mode cfr"     & set "FPS_VAL=25"
+if "%fps%"=="4" set "FPS_CMD=-r 29.97 -fps_mode cfr"  & set "FPS_VAL=30"
+if "%fps%"=="5" set "FPS_CMD=-r 30 -fps_mode cfr"     & set "FPS_VAL=30"
+if "%fps%"=="6" set "FPS_CMD=-r 60 -fps_mode cfr"     & set "FPS_VAL=60"
 
-:: --- BPP ALGORITHM ---
-:: Standard set to 40 BPP
+:: --- SD BITRATE BOOST (22) ---
 set "BASE_BPP=40"
-
-:: Resolution Weighting (1.0x for 1080p, 1.3x for 720p, 1.6x for 480p)
 set "RES_W=10"
-if %RH% LEQ 720 set "RES_W=13"
-if %RH% LEQ 480 set "RES_W=16"
+if %RH% LEQ 720 set "RES_W=15"
+if %RH% LEQ 576 set "RES_W=22"
 
-:: Safe 32-bit Math
 set /a "PPF=(%RW% * %RH%) / 100"
 set /a "BITRATE_K=(%PPF% * %FPS_VAL% * %BASE_BPP% * %RES_W%) / 10000"
 
-:: Hard Cap at 26Mbps for G4 stability
 if %BITRATE_K% GTR 26000 set "BITRATE_K=26000"
-
 set /a "MAXRATE_K=(%BITRATE_K% * 12) / 10"
 set /a "BUF_K=%BITRATE_K% * 2"
 
@@ -94,33 +91,30 @@ set "BITRATE=%BITRATE_K%k"
 set "MAXRATE=%MAXRATE_K%k"
 set "BUFSIZE=%BUF_K%k"
 
-:: --- ENCODER TUNING ---
 set "ENC_TUNE=-qcomp 0.60 -qblur 0.5 -trellis 1 -lmin 2*QP2LAMBDA -lmax 31*QP2LAMBDA"
 
 echo.
 echo Target: %RW%x%RH% (%RH%p) @ %FPS_VAL%fps
-echo Mode: %BITRATE% (2-Pass RC Smoothing)
+echo Mode: %BITRATE% (GOP: 8 ^| RC Smoothing)
 echo.
 
 set "OUTPUT=%~dpn1_G4_%RH%p.mov"
 set "VF_FILTERS=hqdn3d=1.5:1.5:4:4,deblock=filter=strong:block=8,scale=%RW%:%RH%:flags=lanczos:force_original_aspect_ratio=decrease,pad=%RW%:%RH%:(ow-iw)/2:(oh-ih)/2,unsharp=5:5:0.8:5:5:0.0"
 
-set "FF_GLOBAL=-hide_banner -loglevel repeat+level+info -err_detect ignore_err"
+:: Added -nostdin to global flags to stop the parse errors
+set "FF_GLOBAL=-hide_banner -loglevel repeat+level+info -err_detect ignore_err -nostdin"
 
-echo Running Pass 1... (Please Wait)
+echo Running Pass 1...
 ffmpeg %FF_GLOBAL% -y -i "%INPUT%" ^
--map 0:v:0 -c:v mpeg2video -pix_fmt yuv420p -g 12 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% ^
--vf "%VF_FILTERS%" %FPS_CMD% %ENC_TUNE% ^
--pass 1 -an -vtag m2v1 -f null NUL
+-map 0:v:0 %FPS_CMD% -c:v mpeg2video -pix_fmt yuv420p -g 8 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% ^
+-vf "%VF_FILTERS%" %ENC_TUNE% -pass 1 -an -vtag m2v1 -f null NUL
 
 echo.
 echo Running Pass 2...
 ffmpeg %FF_GLOBAL% -y -i "%INPUT%" ^
--map 0:v:0 -map 0:a:0 -c:v mpeg2video -pix_fmt yuv420p -g 12 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% ^
--vf "%VF_FILTERS%" %FPS_CMD% %ENC_TUNE% ^
--pass 2 -c:a aac -b:a 160k -ar 44100 -ac 2 ^
--f mov -vtag m2v1 -movflags +faststart ^
-"%OUTPUT%"
+-map 0:v:0 %FPS_CMD% -map 0:a:0 -c:v mpeg2video -pix_fmt yuv420p -g 8 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% ^
+-vf "%VF_FILTERS%" %ENC_TUNE% -pass 2 -c:a aac -b:a 160k -ar 44100 -ac 2 ^
+-f mov -vtag m2v1 -movflags +faststart "%OUTPUT%"
 
 if exist ffmpeg2pass-0.log del ffmpeg2pass-0.log
 if exist ffmpeg2pass-0.log.mbtree del ffmpeg2pass-0.log.mbtree
