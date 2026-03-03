@@ -13,3 +13,5 @@ You need to move the zip to your Mac and extract it there. Then move the .compon
 Macintosh HD: /Library/Quicktime/ <--- Paste Here
 
 Thumbnails for your newly generated videos should now display in Finder and you should also be able to import the videos and play them in iTunes for the best experience. 
+
+WARNING! Only convert one video at once, or copy the bin folder to a separate instance.
