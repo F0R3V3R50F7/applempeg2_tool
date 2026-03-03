@@ -7,7 +7,7 @@ Download ffmpeg from the link here: "https://github.com/BtbN/FFmpeg-Builds/relea
 
 Playback of MPEG-2 content on Mac OS X is not supported by default, Apple sold their QuickTime MPEG-2 Codec to editing customers separately. This codec has since become obsolete and unobtainable so I have archived it here: 
 
-https://archive.org/details/apple-mpeg-2-codec.component
+"https://archive.org/details/apple-mpeg-2-codec.component"
 
 You need to move the zip to your Mac and extract it there. Then move the .component file to the location below. 
 Macintosh HD: /Library/Quicktime/ <--- Paste Here
