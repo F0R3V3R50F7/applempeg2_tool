@@ -15,7 +15,7 @@ While H.264 and MPEG-4 are "efficient" in terms of disk space, they are devastat
 
 ### Installation & Usage
 1.  **Download FFmpeg 7:** Get the latest builds from [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest).
-2.  **Setup:** Extract the FFmpeg zip and place the `MPEG-2_PowerPC.bat` file into the `bin` folder.
+2.  **Setup:** Extract the FFmpeg zip and place the `applempeg2_tool.bat` file into the `bin` folder.
 3.  **Convert:** Simply drag and drop your video file onto the batch script.
 4.  **Options:** Follow the on-screen prompts for resolution and framerate. 
     * *Note: While 60fps is possible on high-end Dual 1.42GHz MDD systems, 23.97fps is recommended for the best balance of quality and disk space.*
