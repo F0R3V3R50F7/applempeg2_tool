@@ -12,9 +12,8 @@ set "INPUT=%~1"
 
 echo =============================================================
 echo    MPEG2 VIDEO ENCODER ( Optimized for PowerPC G4 Systems)
-echo         FILE SIZE WARNING! Make sure you have space.
+echo         FILE SIZE WARNING: Make sure you have space.
 echo =============================================================
-
 echo Select Resolution:
 echo 1). 1920x1080 (1080p)         7). 1440x1080
 echo 2). 1600x900                  8). 1024x768 (XGA)
@@ -47,7 +46,6 @@ if "%choice%"=="0" (
         set "RW=%%a"
         set "RH=%%b"
     )
-    echo Detected Source: !RW!x!RH!
 )
 
 echo.
@@ -68,55 +66,58 @@ if "%fps%"=="1" (
         if "%%b" == "" (set /a "FPS_VAL=%%a") else (set /a "FPS_VAL=%%a/%%b")
     )
 )
-if "%fps%"=="2" set "FPS_CMD=-r 23.976 -fps_mode cfr" & set "FPS_VAL=24"
-if "%fps%"=="3" set "FPS_CMD=-r 25 -fps_mode cfr"     & set "FPS_VAL=25"
-if "%fps%"=="4" set "FPS_CMD=-r 29.97 -fps_mode cfr"  & set "FPS_VAL=30"
-if "%fps%"=="5" set "FPS_CMD=-r 30 -fps_mode cfr"     & set "FPS_VAL=30"
-if "%fps%"=="6" set "FPS_CMD=-r 60 -fps_mode cfr"     & set "FPS_VAL=60"
+if "%fps%"=="2" set "FPS_CMD=-r 23.976" & set "FPS_VAL=24"
+if "%fps%"=="3" set "FPS_CMD=-r 25"     & set "FPS_VAL=25"
+if "%fps%"=="4" set "FPS_CMD=-r 29.97"  & set "FPS_VAL=30"
+if "%fps%"=="5" set "FPS_CMD=-r 30"     & set "FPS_VAL=30"
+if "%fps%"=="6" set "FPS_CMD=-r 60"     & set "FPS_VAL=60"
 
-set "BASE_BPP=40"
+:: --- BITRATE ALGORITHM (Targeting 22Mbps for 1080p @ 24fps) ---
+:: Base 1080p math adjusted to 19.5Mbps + 2.5Mbps Bump = 22Mbps
+set "BASE_BPP=39"
 set "RES_W=10"
-if %RH% LEQ 720 set "RES_W=15"
-if %RH% LEQ 576 set "RES_W=22"
+set "BUMP=2500"
+
+if %RH% LEQ 720 (set "RES_W=15" & set "BUMP=3500")
+if %RH% LEQ 576 (set "RES_W=22" & set "BUMP=5000")
 
 set /a "PPF=(%RW% * %RH%) / 100"
-set /a "BITRATE_K=(%PPF% * %FPS_VAL% * %BASE_BPP% * %RES_W%) / 10000"
+set /a "CALC_K=(%PPF% * %FPS_VAL% * %BASE_BPP% * %RES_W%) / 10000"
+set /a "BITRATE_K=%CALC_K% + %BUMP%"
 
-if %BITRATE_K% GTR 26000 set "BITRATE_K=26000"
-set /a "MAXRATE_K=(%BITRATE_K% * 12) / 10"
+:: Caps for G4 compatibility (Extended for the 22Mbps target)
+if %BITRATE_K% GTR 45000 set "BITRATE_K=45000"
+set /a "MAXRATE_K=(%BITRATE_K% * 11) / 10"
 set /a "BUF_K=%BITRATE_K% * 2"
 
 set "BITRATE=%BITRATE_K%k"
 set "MAXRATE=%MAXRATE_K%k"
 set "BUFSIZE=%BUF_K%k"
 
-set "ENC_TUNE=-qcomp 0.60 -qblur 0.5 -trellis 1 -lmin 2*QP2LAMBDA -lmax 31*QP2LAMBDA"
+:: --- FILTERS & ENCODER TWEAKS ---
+set "VF_FILTERS=setpts=PTS-STARTPTS,hqdn3d=1.5:1.5:6:6,deblock=filter=strong:block=8,scale=%RW%:%RH%:flags=lanczos,unsharp=3:3:0.5:3:3:0.0"
+set "ENC_TUNE=-qcomp 0.6 -qblur 0.5 -trellis 2 -lmin 1*QP2LAMBDA -qmin 1 -qmax 3 -dc 10"
+set "FF_GLOBAL=-hide_banner -loglevel info -fflags +genpts -nostdin"
+
+:: OUTPUT NAMING
+set "OUTPUT=%~dpn1_%RH%p.mov"
 
 echo.
-echo Target: %RW%x%RH% (%RH%p) @ %FPS_VAL%fps
-echo Mode: %BITRATE% (GOP: 8 ^| RC Smoothing)
-echo.
-
-set "OUTPUT=%~dpn1_G4_%RH%p.mov"
-set "VF_FILTERS=hqdn3d=1.5:1.5:4:4,deblock=filter=strong:block=8,scale=%RW%:%RH%:flags=lanczos:force_original_aspect_ratio=decrease,pad=%RW%:%RH%:(ow-iw)/2:(oh-ih)/2,unsharp=5:5:0.8:5:5:0.0"
-
-set "FF_GLOBAL=-hide_banner -loglevel repeat+level+info -err_detect ignore_err -nostdin"
-
-echo Running Pass 1...
+echo [PASS 1] Target Bitrate: %BITRATE% (22Mbps for 1080p)
 ffmpeg %FF_GLOBAL% -y -i "%INPUT%" ^
--map 0:v:0 %FPS_CMD% -c:v mpeg2video -pix_fmt yuv420p -g 8 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% ^
+-map 0:v:0 %FPS_CMD% -c:v mpeg2video -pix_fmt yuv420p -g 12 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% ^
 -vf "%VF_FILTERS%" %ENC_TUNE% -pass 1 -an -vtag m2v1 -f null NUL
 
 echo.
-echo Running Pass 2...
+echo [PASS 2] Final Double-Pass Encode...
 ffmpeg %FF_GLOBAL% -y -i "%INPUT%" ^
--map 0:v:0 %FPS_CMD% -map 0:a:0 -c:v mpeg2video -pix_fmt yuv420p -g 8 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% ^
--vf "%VF_FILTERS%" %ENC_TUNE% -pass 2 -c:a aac -b:a 160k -ar 44100 -ac 2 ^
--f mov -vtag m2v1 -movflags +faststart "%OUTPUT%"
+-map 0:v:0 %FPS_CMD% -map 0:a:0 -c:v mpeg2video -pix_fmt yuv420p -g 12 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% ^
+-vf "%VF_FILTERS%" %ENC_TUNE% -pass 2 -c:a aac -b:a 192k -ar 44100 -ac 2 ^
+-af "aresample=async=1" -f mov -vtag m2v1 -movflags +faststart "%OUTPUT%"
 
 if exist ffmpeg2pass-0.log del ffmpeg2pass-0.log
 if exist ffmpeg2pass-0.log.mbtree del ffmpeg2pass-0.log.mbtree
 
 echo.
-echo Done. Created: %OUTPUT%
+echo Done.
 pause
