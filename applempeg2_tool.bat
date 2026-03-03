@@ -100,7 +100,6 @@ echo.
 set "OUTPUT=%~dpn1_G4_%RH%p.mov"
 set "VF_FILTERS=hqdn3d=1.5:1.5:4:4,deblock=filter=strong:block=8,scale=%RW%:%RH%:flags=lanczos:force_original_aspect_ratio=decrease,pad=%RW%:%RH%:(ow-iw)/2:(oh-ih)/2,unsharp=5:5:0.8:5:5:0.0"
 
-:: Added -nostdin to global flags to stop the parse errors
 set "FF_GLOBAL=-hide_banner -loglevel repeat+level+info -err_detect ignore_err -nostdin"
 
 echo Running Pass 1...
