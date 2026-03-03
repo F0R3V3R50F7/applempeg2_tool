@@ -12,10 +12,10 @@ set "INPUT=%~1"
 
 echo =============================================================
 echo    MPEG2 VIDEO ENCODER ( Optimized for PowerPC G4 Systems)
+echo         FILE SIZE WARNING! Make sure you have space.
 echo =============================================================
 
 echo Select Resolution:
-echo --- 16:9 Aspect ---           --- 4:3 Aspect ---
 echo 1). 1920x1080 (1080p)         7). 1440x1080
 echo 2). 1600x900                  8). 1024x768 (XGA)
 echo 3). 1366x768                  9). 800x600  (SVGA)
@@ -40,7 +40,6 @@ if "%choice%"=="9"  set "RW=800"  & set "RH=600"
 if "%choice%"=="10" set "RW=640"  & set "RH=480"
 if "%choice%"=="11" set "RW=320"  & set "RH=240"
 
-:: Handle Source Resolution Option
 if "%choice%"=="0" (
     for /f "tokens=1,2 delims=x" %%a in ('ffprobe -v error -select_streams v:0 -show_entries stream^=width^,height -of csv^=s^=x:p^=0 "%INPUT%"') do (
         set "RW=%%a"
@@ -72,19 +71,21 @@ if "%fps%"=="4" set "FPS_CMD=-r 29.97 -fps_mode cfr" & set "FPS_VAL=30"
 if "%fps%"=="5" set "FPS_CMD=-r 30 -fps_mode cfr"    & set "FPS_VAL=30"
 if "%fps%"=="6" set "FPS_CMD=-r 60 -fps_mode cfr"    & set "FPS_VAL=60"
 
-echo.
-echo QUALITY PRESET:
-echo 1). Standard (0.3 BPP)
-echo 2). Enhanced (0.4 BPP - High Detail)
-set /p qual="Choice: "
-set "BPP_VAL=30"
-if "%qual%"=="2" set "BPP_VAL=40"
+:: --- BPP ALGORITHM ---
+:: Standard set to 40 BPP
+set "BASE_BPP=40"
 
-:: --- THE ALGORITHM ---
-set /a "BITRATE_K=(%RW% * %RH% * %FPS_VAL% * %BPP_VAL%) / 100000"
+:: Resolution Weighting (1.0x for 1080p, 1.3x for 720p, 1.6x for 480p)
+set "RES_W=10"
+if %RH% LEQ 720 set "RES_W=13"
+if %RH% LEQ 480 set "RES_W=16"
 
-:: Safety Cap at 25Mbps
-if %BITRATE_K% GTR 25000 set "BITRATE_K=25000"
+:: Safe 32-bit Math
+set /a "PPF=(%RW% * %RH%) / 100"
+set /a "BITRATE_K=(%PPF% * %FPS_VAL% * %BASE_BPP% * %RES_W%) / 10000"
+
+:: Hard Cap at 26Mbps for G4 stability
+if %BITRATE_K% GTR 26000 set "BITRATE_K=26000"
 
 set /a "MAXRATE_K=(%BITRATE_K% * 12) / 10"
 set /a "BUF_K=%BITRATE_K% * 2"
@@ -93,9 +94,12 @@ set "BITRATE=%BITRATE_K%k"
 set "MAXRATE=%MAXRATE_K%k"
 set "BUFSIZE=%BUF_K%k"
 
+:: --- ENCODER TUNING ---
+set "ENC_TUNE=-qcomp 0.60 -qblur 0.5 -trellis 1 -lmin 2*QP2LAMBDA -lmax 31*QP2LAMBDA"
+
 echo.
 echo Target: %RW%x%RH% (%RH%p) @ %FPS_VAL%fps
-echo Mode: %BITRATE% (BPP: 0.!BPP_VAL!)
+echo Mode: %BITRATE% (2-Pass RC Smoothing)
 echo.
 
 set "OUTPUT=%~dpn1_G4_%RH%p.mov"
@@ -103,19 +107,18 @@ set "VF_FILTERS=hqdn3d=1.5:1.5:4:4,deblock=filter=strong:block=8,scale=%RW%:%RH%
 
 set "FF_GLOBAL=-hide_banner -loglevel repeat+level+info -err_detect ignore_err"
 
-echo =============================================================
-echo Running Pass 1...
+echo Running Pass 1... (Please Wait)
 ffmpeg %FF_GLOBAL% -y -i "%INPUT%" ^
--map 0:v:0 -c:v mpeg2video -pix_fmt yuv420p -g 12 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% -dc 10 ^
--vf "%VF_FILTERS%" %FPS_CMD% ^
+-map 0:v:0 -c:v mpeg2video -pix_fmt yuv420p -g 12 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% ^
+-vf "%VF_FILTERS%" %FPS_CMD% %ENC_TUNE% ^
 -pass 1 -an -vtag m2v1 -f null NUL
 
 echo.
 echo Running Pass 2...
 ffmpeg %FF_GLOBAL% -y -i "%INPUT%" ^
--map 0:v:0 -map 0:a:0 -c:v mpeg2video -pix_fmt yuv420p -g 12 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% -dc 10 ^
--vf "%VF_FILTERS%" %FPS_CMD% ^
--pass 2 -c:a pcm_s16le -ar 48000 -ac 2 ^
+-map 0:v:0 -map 0:a:0 -c:v mpeg2video -pix_fmt yuv420p -g 12 -bf 2 -b:v %BITRATE% -maxrate %MAXRATE% -bufsize %BUFSIZE% ^
+-vf "%VF_FILTERS%" %FPS_CMD% %ENC_TUNE% ^
+-pass 2 -c:a aac -b:a 160k -ar 44100 -ac 2 ^
 -f mov -vtag m2v1 -movflags +faststart ^
 "%OUTPUT%"
 
@@ -123,5 +126,5 @@ if exist ffmpeg2pass-0.log del ffmpeg2pass-0.log
 if exist ffmpeg2pass-0.log.mbtree del ffmpeg2pass-0.log.mbtree
 
 echo.
-echo Done. File: %OUTPUT%
+echo Done. Created: %OUTPUT%
 pause
